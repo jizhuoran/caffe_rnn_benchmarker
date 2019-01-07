@@ -1,0 +1,168 @@
+
+input: "data"
+input_shape { dim: 48 dim: 64 dim: 1}
+
+input: "label" 
+input_shape { dim: 3072 dim: 1} 
+
+input: "clip"
+input_shape { dim: 48 dim: 64} 
+
+
+ 
+
+layer {
+  name: "embedded"
+  type: "Embed"
+  bottom: "data"
+  top: "embedded"
+  embed_param{
+    input_dim: 5240
+    num_output: 128
+    weight_filler {
+        type: "uniform"
+        min: -1
+        max: 1
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+
+layer {
+  name: "lstm1"
+  type: "LSTM"
+  bottom: "embedded"
+  bottom: "clip"
+  top: "lstm1"
+  recurrent_param {
+    num_output: 128
+    weight_filler {
+      type: "gaussian"
+      std: 0.1
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+
+layer {
+  name: "lstm1-drop"
+  type: "Dropout"
+  bottom: "lstm1"
+  top: "lstm1-drop"
+  dropout_param {
+    dropout_ratio: 0.3
+  }
+}
+
+
+layer {
+  name: "lstm2"
+  type: "LSTM"
+  bottom: "lstm1-drop"
+  bottom: "clip"
+  top: "lstm2"
+  recurrent_param {
+    num_output: 128
+    weight_filler {
+      type: "gaussian"
+      std: 0.2
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+
+layer {
+  name: "lstm2-drop"
+  type: "Dropout"
+  bottom: "lstm2"
+  top: "lstm2-drop"
+  dropout_param {
+    dropout_ratio: 0.1
+  }
+}
+ layer {
+   name: "lstm3"
+   type: "LSTM"
+   bottom: "lstm2-drop"
+   bottom: "clip"
+   top: "lstm3"
+   recurrent_param {
+     num_output: 128
+     weight_filler {
+       type: "gaussian"
+       std:0.3
+     }
+     bias_filler {
+       type: "constant"
+     }
+   }
+ }
+
+ layer {
+   name: "lstm3-drop"
+   type: "Dropout"
+   bottom: "lstm3"
+   top: "lstm3-drop"
+   dropout_param {
+     dropout_ratio: 0.1
+   }
+ }
+
+
+layer {
+  name: "reshape"
+  type: "Reshape"
+  bottom: "lstm3-drop"
+  top: "lstm3-reshape"
+  reshape_param {
+    shape {
+      dim: 3072 # copy the dimension from below
+      dim: 128
+    }
+  }
+}
+
+
+layer {
+  name: "ip1"
+  type: "InnerProduct"
+  bottom: "lstm3-reshape"
+  top: "ip1"
+
+  inner_product_param {
+    num_output: 5240
+    weight_filler {
+      type: "gaussian"
+      std: 0.1
+    }
+    bias_term: false
+  }
+}
+
+
+layer {
+  name: "output"
+  type: "Softmax"
+  bottom: "ip1"
+  top: "output_word"
+}
+
+layer {
+  name: "silence"
+  type: "Silence"
+  bottom: "output_word"
+}
+
+layer {
+  name: "loss"
+  type: "SoftmaxWithLoss"
+  bottom: "ip1"
+  bottom: "label"
+  top: "loss"
+}
